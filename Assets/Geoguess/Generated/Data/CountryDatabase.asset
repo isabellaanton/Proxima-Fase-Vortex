@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ebf967703e2af74abd45df9343469ea, type: 3}
+  m_Name: CountryDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::CountryDatabase
+  countries:
+  - {fileID: 11400000, guid: fea6928e285717849923e1adbe5234de, type: 2}
+  - {fileID: 11400000, guid: 5af53a0256edab646bc085b1567cb0f1, type: 2}
+  - {fileID: 11400000, guid: e5fc5568dd4ec1549a49cc6c8ec6f2ab, type: 2}
+  - {fileID: 11400000, guid: 92cde248857285042ad7816a30dcec0b, type: 2}
+  - {fileID: 11400000, guid: 8a85fbdc7e1c2f04e8e945d7ce28d171, type: 2}
+  - {fileID: 11400000, guid: dcdaf8ec0bd52e540b77695a5baa51b5, type: 2}
+  - {fileID: 11400000, guid: 4bf4cd0457706c24eaba3a7458c13210, type: 2}
+  - {fileID: 11400000, guid: 8759895c487f46045ab1cf5fe03a0043, type: 2}
+  - {fileID: 11400000, guid: d017d11c2a8ddce47bc63dc61c4d815d, type: 2}
+  - {fileID: 11400000, guid: 5b617464d600a9c479d3bfc26e1388aa, type: 2}

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b212311c85817049b8d7f9cdb718c30, type: 3}
+  m_Name: Brennhold
+  m_EditorClassIdentifier: Assembly-CSharp::CountryData
+  countryName: Brennhold
+  idColor:
+    serializedVersion: 2
+    rgba: 4292628660
+  flag: {fileID: 0}
+  clueTerrain: A frozen polar island of glaciers, ice caps and aurora-lit winters.
+  clueLocation: Floating in the Arctic Ocean, north of Russia's coast.
+  clueCulture: 'Flag: a white cross on a blue field.'
+  difficulty: 1
+  decoys:
+  - Brennmark
+  - Hvalheim
+  - Skarnholt
+  - Iskeland

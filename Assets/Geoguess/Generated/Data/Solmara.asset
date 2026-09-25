@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b212311c85817049b8d7f9cdb718c30, type: 3}
+  m_Name: Solmara
+  m_EditorClassIdentifier: Assembly-CSharp::CountryData
+  countryName: Solmara
+  idColor:
+    serializedVersion: 2
+    rgba: 4286105660
+  flag: {fileID: 0}
+  clueTerrain: A temperate island nation of green hills, deep fjords and sheep pastures.
+  clueLocation: In the South Pacific, east of Australia.
+  clueCulture: 'Flag: a yellow disc on a deep blue field.'
+  difficulty: 0
+  decoys:
+  - Solmaria
+  - Tevaro
+  - Anwick Land
+  - Port Ellis

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b212311c85817049b8d7f9cdb718c30, type: 3}
+  m_Name: NerathIsles
+  m_EditorClassIdentifier: Assembly-CSharp::CountryData
+  countryName: Nerath Isles
+  idColor:
+    serializedVersion: 2
+    rgba: 4293294140
+  flag: {fileID: 0}
+  clueTerrain: A tropical archipelago of volcanic mountains and black-sand beaches.
+  clueLocation: Mid-Atlantic islands lying between South America and Africa.
+  clueCulture: 'Flag: a blue field with a white crescent and three stars.'
+  difficulty: 0
+  decoys:
+  - Sarn Islands
+  - Moriah Reef
+  - Thal Archipelago
+  - Quenna Isles

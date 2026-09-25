@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b212311c85817049b8d7f9cdb718c30, type: 3}
+  m_Name: Quillon
+  m_EditorClassIdentifier: Assembly-CSharp::CountryData
+  countryName: Quillon
+  idColor:
+    serializedVersion: 2
+    rgba: 4286085240
+  flag: {fileID: 0}
+  clueTerrain: Windblown sub-Antarctic rock and tundra crowded with penguin colonies.
+  clueLocation: Isolated in the far southern Indian Ocean, near Antarctica.
+  clueCulture: 'Flag: three vertical stripes of white, blue and white.'
+  difficulty: 2
+  decoys:
+  - Quillane
+  - Southmark
+  - Cape Rusk
+  - Penrith Deep

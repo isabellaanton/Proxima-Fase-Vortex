@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b212311c85817049b8d7f9cdb718c30, type: 3}
+  m_Name: Valdoria
+  m_EditorClassIdentifier: Assembly-CSharp::CountryData
+  countryName: Valdoria
+  idColor:
+    serializedVersion: 2
+    rgba: 4282137830
+  flag: {fileID: 0}
+  clueTerrain: A landlocked highland republic of cold steppes and snow-capped mountain
+    ranges.
+  clueLocation: Carved into the heart of Central Asia, far from any ocean.
+  clueCulture: 'Flag: three horizontal stripes of green, white and crimson.'
+  difficulty: 0
+  decoys:
+  - Kazoria
+  - Ostrava Rise
+  - Belmarch
+  - Tundria

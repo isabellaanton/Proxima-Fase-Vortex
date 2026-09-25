@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b212311c85817049b8d7f9cdb718c30, type: 3}
+  m_Name: TamarindCoast
+  m_EditorClassIdentifier: Assembly-CSharp::CountryData
+  countryName: Tamarind Coast
+  idColor:
+    serializedVersion: 2
+    rgba: 4280845040
+  flag: {fileID: 0}
+  clueTerrain: Warm rainforest islands with spice plantations and coral reefs.
+  clueLocation: In the Indian Ocean, south-west of India.
+  clueCulture: 'Flag: a green field crossed by a yellow diagonal band.'
+  difficulty: 1
+  decoys:
+  - Cinnamon Reach
+  - Tamara Bay
+  - Saffron Isles
+  - Malabrune
