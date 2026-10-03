@@ -9,6 +9,7 @@ using UnityEngine.UI;
 // Jogo do globo: "Clique no país que não existe".
 // A cada rodada o jogo INVENTA um país falso numa fronteira entre países reais,
 // com posição, tamanho e formato aleatórios.
+// Algumas rodadas (sorteadas) mostram os NOMES dos países no globo; outras não.
 public class GlobeGame : MonoBehaviour
 {
     [Header("Cena")]
@@ -18,11 +19,31 @@ public class GlobeGame : MonoBehaviour
 
     [Header("Mapa de IDs (importar com Read/Write ligado, sem compressão, sem mipmaps)")]
     [SerializeField] Texture2D idMap;               // mapa_ids.png
-    [SerializeField] TextAsset namesCsv;            // paises.csv (opcional, só para mostrar nomes)
+    [SerializeField] TextAsset namesCsv;            // paises.csv (nomes dos países)
 
-    [Header("Tamanho do país falso (em graus do globo)")]
-    [SerializeField] float minRadius = 2.5f;        // pequeno: ~ tamanho de Portugal
-    [SerializeField] float maxRadius = 8f;          // grande: ~ tamanho da Espanha/França
+    [Header("País falso")]
+    [Range(0f, 1f)]
+    [SerializeField] float islandChance = 0.5f;     // chance de a rodada usar uma ILHA no oceano (o resto: país entre outros países)
+    [SerializeField] int minArea = 250;             // tamanho mínimo do país falso (em pixels do mapa)
+    [SerializeField] int maxArea = 1800;            // tamanho máximo (Portugal ~ 400, Espanha ~ 1700)
+    [SerializeField] float minElongation = 1.4f;    // quão comprido ele sai (1 = redondo)
+    [SerializeField] float maxElongation = 2.4f;
+
+    [Header("Nomes dos países no globo")]
+    [Range(0f, 1f)]
+    [SerializeField] float namesChance = 0.5f;      // chance de uma rodada mostrar os nomes (0 = nunca, 1 = sempre)
+    [SerializeField] float minLabelFont = 9f;       // menor tamanho de letra (em pixels) que o jogo mostra
+    [SerializeField] float tinyCountryPx = 16f;     // país pequeno: mostra o nome (com a letra mínima) quando o país
+                                                    // já tem pelo menos esse tamanho (em pixels) na tela
+
+    [Header("Modo bandeira errada")]
+    [Range(0f, 1f)]
+    [SerializeField] float flagChance = 0.5f;       // chance de uma rodada ser "bandeira errada" (0 = nunca, 1 = sempre)
+    [SerializeField] Texture2D flagAtlas;           // bandeiras.png
+    [SerializeField] TextAsset flagsCsv;            // bandeiras.csv
+    [SerializeField] int atlasColumns = 16;         // quantas bandeiras por linha no bandeiras.png
+    [SerializeField] int atlasRows = 12;
+    [SerializeField] float minFlagPx = 10f;         // menor altura (em pixels) de bandeira que o jogo mostra
 
     [Header("Interface")]
     [SerializeField] TMP_Text missionText;
@@ -30,7 +51,7 @@ public class GlobeGame : MonoBehaviour
     [SerializeField] Button confirmButton;
 
     // ---------- dados internos ----------
-    static readonly Color32 Red   = new Color32(220, 40, 40, 255);
+    static readonly Color32 Red       = new Color32(220, 40, 40, 255);
     static readonly Color32 Highlight = new Color32(255, 255, 255, 255);   // branco: nenhum país usa
 
     int w, h;                       // largura e altura do mapa em pixels
@@ -39,8 +60,11 @@ public class GlobeGame : MonoBehaviour
     Color32[] baseColors, roundColors, display;
     bool[] edge;                    // true = pixel de fronteira (desenhado mais escuro)
     readonly List<int> borderSeeds = new List<int>();               // pixels de fronteira entre 2 países
+    readonly List<int> oceanSeeds = new List<int>();                // pixels de oceano longe de qualquer terra
+    int[] landDist;                 // distância (x3) de cada pixel até a terra mais próxima
     readonly Dictionary<int, int> totalPx = new Dictionary<int, int>();     // cor-código -> nº de pixels
     readonly Dictionary<int, string> nameByKey = new Dictionary<int, string>();
+    readonly List<int> fakeBlob = new List<int>();                  // pixels do país falso desta rodada
 
     Texture2D displayTex;           // textura que aparece na esfera
     int fakeKey, selectedKey;       // cor-código do país falso e do país clicado
@@ -49,6 +73,43 @@ public class GlobeGame : MonoBehaviour
     Vector2 downPos;
     int pendingSeed;                // centro da última mancha tentada
     Vector2 fakeUV;                 // onde o país falso está no mapa (0 a 1)
+
+    // ---------- dados dos nomes (rótulos) ----------
+    int countryCount;                                   // nº de países reais (o falso é o índice countryCount)
+    readonly List<int> keyByIdx = new List<int>();      // índice -> cor-código
+    int[] baseIdx, roundIdx;                            // índice do país de cada pixel (-1 = oceano)
+    int[] dist, bestDist, bestPix;                      // para achar o "meio" de cada país
+
+    Vector3[] meshVerts;            // cópia da malha da esfera (para converter mapa -> ponto 3D)
+    Vector2[] meshUvs;
+    int[] meshTris;
+
+    // ---------- modo bandeira errada ----------
+    readonly Dictionary<int, int> flagByKey = new Dictionary<int, int>();       // cor-código -> posição no atlas
+    readonly Dictionary<int, string> isoByKey = new Dictionary<int, string>();  // cor-código -> código do país (br, fr...)
+    readonly HashSet<string> dupIso = new HashSet<string>();                    // códigos usados por 2 países no mapa
+    bool canShowFlags, flagRound;
+    string flagOwnerName;           // de quem é a bandeira que está no país errado
+    RectTransform flagsRoot;
+    RawImage[] flagImgs;
+    bool flagGeoReady;              // a geometria das bandeiras só é calculada uma vez
+    Vector3[] gPos; float[] gW, gH, gDiam; bool[] gOn; int[] gBestDist, gBestPix;
+    static readonly string[][] LookAlikes =
+    {
+        new[]{"ro","td","ad","md"}, new[]{"id","mc","pl"}, new[]{"nl","lu"}, new[]{"au","nz"},
+        new[]{"ru","sk","si"}, new[]{"co","ec","ve"}, new[]{"sn","ml","gn"}, new[]{"ie","ci","it"},
+        new[]{"no","is","fi"}, new[]{"us","lr","my"}, new[]{"cu","pr"}, new[]{"sd","sy","ye","eg","iq"}
+    };
+
+    bool canShowNames;              // false se faltar CSV ou a malha não for legível
+    bool showNames;                 // esta rodada mostra os nomes?
+    Canvas canvas;
+    RectTransform labelsRoot;
+    TextMeshProUGUI[] labels;
+    Vector3[] labelLocalPos;        // posição de cada rótulo na esfera (coordenadas locais)
+    float[] labelWidthWorld, labelHeightWorld, labelDiameterWorld;
+    int[] labelChars;
+    bool[] labelOn;
 
     // transforma uma cor (R,G,B) em um número único
     static int Pack(Color32 c) => (c.r << 16) | (c.g << 8) | c.b;
@@ -98,6 +159,25 @@ public class GlobeGame : MonoBehaviour
             }
         }
 
+        // lê as bandeiras (linhas no formato: R,G,B,posição,código)
+        if (flagsCsv != null)
+        {
+            var count = new Dictionary<string, int>();
+            foreach (string line in flagsCsv.text.Split('\n'))
+            {
+                string[] p = line.Trim().Split(',');
+                if (p.Length < 5) continue;
+                if (!int.TryParse(p[0], out int r) || !int.TryParse(p[1], out int g) ||
+                    !int.TryParse(p[2], out int b) || !int.TryParse(p[3], out int idx)) continue;
+                int key = (r << 16) | (g << 8) | b;
+                flagByKey[key] = idx;
+                isoByKey[key] = p[4].Trim();
+                count.TryGetValue(p[4].Trim(), out int c);
+                count[p[4].Trim()] = c + 1;
+            }
+            foreach (var kv in count) if (kv.Value > 1) dupIso.Add(kv.Key);   // ex.: Chipre e Chipre do Norte
+        }
+
         // guarda pixels que ficam na fronteira entre dois países reais
         // (só entre as latitudes -60 e 70, para evitar a distorção dos polos)
         int yMin = h * 30 / 180, yMax = h * 160 / 180;
@@ -117,10 +197,48 @@ public class GlobeGame : MonoBehaviour
         if (borderSeeds.Count == 0)
             Debug.LogError("Nenhuma fronteira encontrada. Confira se o mapa foi importado SEM compressão e SEM suavização.");
 
+        // distância de cada pixel até a terra (duas varreduras) -> serve para achar oceano aberto
+        landDist = new int[n];
+        for (int i = 0; i < n; i++) landDist[i] = baseKeys[i] == oceanKey ? 1000000 : 0;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x, d = landDist[i];
+                if (d == 0) continue;
+                if (x > 0) d = Mathf.Min(d, landDist[i - 1] + 3);
+                if (y > 0)
+                {
+                    d = Mathf.Min(d, landDist[i - w] + 3);
+                    if (x > 0) d = Mathf.Min(d, landDist[i - w - 1] + 4);
+                    if (x < w - 1) d = Mathf.Min(d, landDist[i - w + 1] + 4);
+                }
+                landDist[i] = d;
+            }
+        for (int y = h - 1; y >= 0; y--)
+            for (int x = w - 1; x >= 0; x--)
+            {
+                int i = y * w + x, d = landDist[i];
+                if (d == 0) continue;
+                if (x < w - 1) d = Mathf.Min(d, landDist[i + 1] + 3);
+                if (y < h - 1)
+                {
+                    d = Mathf.Min(d, landDist[i + w] + 3);
+                    if (x < w - 1) d = Mathf.Min(d, landDist[i + w + 1] + 4);
+                    if (x > 0) d = Mathf.Min(d, landDist[i + w - 1] + 4);
+                }
+                landDist[i] = d;
+            }
+        // oceano a pelo menos 6 px de qualquer terra (latitudes -55 a 65)
+        for (int y = h * 35 / 180; y < h * 155 / 180; y++)
+            for (int x = 0; x < w; x++)
+                if (landDist[y * w + x] >= 18) oceanSeeds.Add(y * w + x);
+
         // textura que vai na esfera (com mipmaps para as fronteiras não "tremerem")
         displayTex = new Texture2D(w, h, TextureFormat.RGBA32, true);
         displayTex.filterMode = FilterMode.Trilinear;
         globeRenderer.material.mainTexture = displayTex;
+
+        SetupNames(n);
 
         confirmButton.onClick.AddListener(Confirm);
         StartRound();
@@ -128,6 +246,109 @@ public class GlobeGame : MonoBehaviour
 
     bool IsBigLand(int key) =>
         key != oceanKey && totalPx.TryGetValue(key, out int c) && c >= 30;
+
+    // ============================================================
+    //  PREPARA OS NOMES (rótulos) -- roda uma vez
+    // ============================================================
+    void SetupNames(int n)
+    {
+        // a malha da esfera precisa estar legível para sabermos onde cada ponto do mapa fica no globo 3D
+        Mesh m = globeCollider.sharedMesh;
+        if (m != null && m.isReadable)
+        {
+            meshVerts = m.vertices;
+            meshUvs = m.uv;
+            meshTris = m.triangles;
+        }
+        else
+        {
+            Debug.LogWarning("Nomes desligados: ligue Read/Write na malha da esfera (ou use a esfera padrão da Unity).");
+        }
+        if (nameByKey.Count == 0)
+            Debug.LogWarning("Nomes desligados: arraste o arquivo paises.csv para o campo Names Csv.");
+
+        canShowNames = meshTris != null && nameByKey.Count > 0 && namesChance > 0f;
+        canShowFlags = meshTris != null && nameByKey.Count > 0 && flagAtlas != null && flagByKey.Count > 0 && flagChance > 0f;
+        if (flagChance > 0f && flagAtlas == null)
+            Debug.LogWarning("Modo bandeira desligado: arraste bandeiras.png (Flag Atlas) e bandeiras.csv (Flags Csv) no Inspector.");
+        if (!canShowNames && !canShowFlags) return;
+
+        // dá um número (0, 1, 2...) a cada país real
+        var idxByKey = new Dictionary<int, int>();
+        foreach (var kv in totalPx)
+        {
+            idxByKey[kv.Key] = keyByIdx.Count;
+            keyByIdx.Add(kv.Key);
+        }
+        countryCount = keyByIdx.Count;
+
+        baseIdx = new int[n];
+        for (int i = 0; i < n; i++)
+            baseIdx[i] = baseKeys[i] == oceanKey ? -1 : idxByKey[baseKeys[i]];
+        roundIdx = new int[n];
+        dist = new int[n];
+        bestDist = new int[countryCount + 1];   // +1 = país falso
+        bestPix = new int[countryCount + 1];
+
+        // cria um texto (TextMeshPro) para cada país + um para o falso
+        canvas = confirmButton.GetComponentInParent<Canvas>().rootCanvas;
+        var rootGo = new GameObject("RotulosDosPaises", typeof(RectTransform));
+        labelsRoot = rootGo.GetComponent<RectTransform>();
+        labelsRoot.SetParent(canvas.transform, false);
+        labelsRoot.SetAsFirstSibling();                 // fica atrás dos outros textos e do botão
+        labelsRoot.anchorMin = Vector2.zero;
+        labelsRoot.anchorMax = Vector2.one;
+        labelsRoot.offsetMin = Vector2.zero;
+        labelsRoot.offsetMax = Vector2.zero;
+
+        int total = countryCount + 1;
+        labels = new TextMeshProUGUI[total];
+        labelLocalPos = new Vector3[total];
+        labelWidthWorld = new float[total];
+        labelHeightWorld = new float[total];
+        labelDiameterWorld = new float[total];
+        labelChars = new int[total];
+        labelOn = new bool[total];
+
+        for (int k = 0; k < total; k++)
+        {
+            var go = new GameObject("rotulo", typeof(RectTransform));
+            go.transform.SetParent(labelsRoot, false);
+            var t = go.AddComponent<TextMeshProUGUI>();
+            t.alignment = TextAlignmentOptions.Center;
+            t.fontStyle = FontStyles.Bold;
+            t.color = new Color(0f, 0f, 0f, 0.85f);
+            t.raycastTarget = false;                    // não atrapalha o clique no globo
+            t.rectTransform.sizeDelta = new Vector2(1000f, 100f);
+            go.SetActive(false);
+            labels[k] = t;
+        }
+
+        if (!canShowFlags) return;
+
+        // uma imagem (RawImage) por país real, todas usando o mesmo atlas de bandeiras
+        var fgo = new GameObject("BandeirasDosPaises", typeof(RectTransform));
+        flagsRoot = fgo.GetComponent<RectTransform>();
+        flagsRoot.SetParent(canvas.transform, false);
+        flagsRoot.SetAsFirstSibling();
+        flagsRoot.anchorMin = Vector2.zero; flagsRoot.anchorMax = Vector2.one;
+        flagsRoot.offsetMin = Vector2.zero; flagsRoot.offsetMax = Vector2.zero;
+        flagImgs = new RawImage[countryCount];
+        for (int k = 0; k < countryCount; k++)
+        {
+            if (!flagByKey.ContainsKey(keyByIdx[k])) continue;
+            var go = new GameObject("bandeira", typeof(RectTransform));
+            go.transform.SetParent(flagsRoot, false);
+            var img = go.AddComponent<RawImage>();
+            img.texture = flagAtlas;
+            img.raycastTarget = false;
+            go.SetActive(false);
+            flagImgs[k] = img;
+        }
+        flagsRoot.gameObject.SetActive(false);
+        gPos = new Vector3[total]; gW = new float[total]; gH = new float[total]; gDiam = new float[total];
+        gOn = new bool[total]; gBestDist = new int[total]; gBestPix = new int[total];
+    }
 
     // ============================================================
     //  NOVA RODADA
@@ -139,12 +360,110 @@ public class GlobeGame : MonoBehaviour
         resultText.text = "";
         confirmButton.gameObject.SetActive(false);
 
-        CreateFake();       // inventa o país falso desta rodada
-        ComputeEdges();     // calcula onde ficam as linhas de fronteira
+        // sorteia o modo da rodada: país que não existe OU bandeira errada
+        flagRound = canShowFlags && Random.value < flagChance;
+        if (flagRound)
+        {
+            PrepareFlagRound();     // escolhe o país que vai receber a bandeira errada
+        }
+        else
+        {
+            CreateFake();           // inventa o país falso desta rodada
+            ComputeEdges();         // calcula onde ficam as linhas de fronteira
+        }
         ResetDisplay();
         Upload();
 
-        missionText.text = "Clique no país que não existe";
+        // sorteia se esta rodada mostra os nomes dos países (só no modo "país que não existe")
+        showNames = !flagRound && canShowNames && fakeKey >= 0 && Random.value < namesChance;
+        if (labelsRoot != null) labelsRoot.gameObject.SetActive(showNames);
+        if (flagsRoot != null) flagsRoot.gameObject.SetActive(flagRound);
+        if (showNames) BuildLabels(false);
+
+        missionText.text = flagRound ? "Clique no país com a bandeira errada" : "Clique no país que não existe";
+    }
+
+    // ============================================================
+    //  MODO BANDEIRA ERRADA
+    // ============================================================
+    void PrepareFlagRound()
+    {
+        System.Array.Copy(baseKeys, roundKeys, baseKeys.Length);
+        System.Array.Copy(baseColors, roundColors, baseColors.Length);
+        fakeBlob.Clear();
+        fakeKey = -1;
+        ComputeEdges();
+
+        // posição e tamanho de cada bandeira: o cálculo é pesado, mas é igual em toda rodada -> faz 1 vez só
+        if (!flagGeoReady)
+        {
+            BuildLabels(true);
+            System.Array.Copy(labelLocalPos, gPos, gPos.Length);
+            System.Array.Copy(labelWidthWorld, gW, gW.Length);
+            System.Array.Copy(labelHeightWorld, gH, gH.Length);
+            System.Array.Copy(labelDiameterWorld, gDiam, gDiam.Length);
+            System.Array.Copy(labelOn, gOn, gOn.Length);
+            System.Array.Copy(bestDist, gBestDist, gBestDist.Length);
+            System.Array.Copy(bestPix, gBestPix, gBestPix.Length);
+            flagGeoReady = true;
+        }
+        else
+        {
+            System.Array.Copy(gPos, labelLocalPos, gPos.Length);
+            System.Array.Copy(gW, labelWidthWorld, gW.Length);
+            System.Array.Copy(gH, labelHeightWorld, gH.Length);
+            System.Array.Copy(gDiam, labelDiameterWorld, gDiam.Length);
+            System.Array.Copy(gOn, labelOn, gOn.Length);
+        }
+
+        // países que podem receber a bandeira errada: de bom tamanho, com bandeira, sem código repetido
+        var candidates = new List<int>();
+        var owners = new List<int>();
+        for (int k = 0; k < countryCount; k++)
+        {
+            int key = keyByIdx[k];
+            if (!isoByKey.TryGetValue(key, out string iso) || dupIso.Contains(iso)) continue;
+            owners.Add(k);
+            if (gBestDist[k] >= 15 && gOn[k]) candidates.Add(k);
+        }
+        if (candidates.Count == 0) { flagRound = false; CreateFake(); ComputeEdges(); return; }
+
+        int target = candidates[Random.Range(0, candidates.Count)];
+        string targetIso = isoByKey[keyByIdx[target]];
+
+        // sorteia de quem é a bandeira errada (nunca a dele, nem uma parecida demais)
+        int owner = target;
+        for (int tries = 0; tries < 200 && owner == target; tries++)
+        {
+            int o = owners[Random.Range(0, owners.Count)];
+            if (o == target || LooksAlike(targetIso, isoByKey[keyByIdx[o]])) continue;
+            owner = o;
+        }
+        if (owner == target) { flagRound = false; CreateFake(); ComputeEdges(); return; }
+
+        fakeKey = keyByIdx[target];
+        fakeName = NameOf(fakeKey);
+        flagOwnerName = NameOf(keyByIdx[owner]);
+        fakeUV = new Vector2((gBestPix[target] % w + 0.5f) / w, (gBestPix[target] / w + 0.5f) / h);
+
+        // põe a bandeira certa em cada país (e a errada no escolhido)
+        for (int k = 0; k < countryCount; k++)
+        {
+            if (flagImgs[k] == null) continue;
+            int idx = flagByKey[keyByIdx[k == target ? owner : k]];
+            int col = idx % atlasColumns, row = idx / atlasColumns;
+            float cw = 1f / atlasColumns, ch = 1f / atlasRows;
+            float insetX = 0.5f / flagAtlas.width, insetY = 0.5f / flagAtlas.height;   // evita "vazar" a bandeira do lado
+            flagImgs[k].uvRect = new Rect(col * cw + insetX, 1f - (row + 1) * ch + insetY, cw - 2f * insetX, ch - 2f * insetY);
+        }
+    }
+
+    static bool LooksAlike(string a, string b)
+    {
+        if (a == b) return true;
+        foreach (var g in LookAlikes)
+            if (System.Array.IndexOf(g, a) >= 0 && System.Array.IndexOf(g, b) >= 0) return true;
+        return false;
     }
 
     // ============================================================
@@ -155,6 +474,7 @@ public class GlobeGame : MonoBehaviour
         System.Array.Copy(baseKeys, roundKeys, baseKeys.Length);
         System.Array.Copy(baseColors, roundColors, baseColors.Length);
         fakeKey = -1;
+        fakeBlob.Clear();
 
         var blob = new List<int>();
         for (int attempt = 0; attempt < 80; attempt++)   // tenta até achar um formato válido
@@ -172,76 +492,122 @@ public class GlobeGame : MonoBehaviour
             } while (Pack(fakeColor) == oceanKey || totalPx.ContainsKey(Pack(fakeColor)));
 
             fakeKey = Pack(fakeColor);
-            fakeName = RandomName();
+
+            // nome inventado que não seja igual ao de um país real
+            do { fakeName = RandomName(); } while (nameByKey.ContainsValue(fakeName));
+
             // guarda a posição do centro do país falso (para girar o globo até ele)
             fakeUV = new Vector2((pendingSeed % w + 0.5f) / w, (pendingSeed / w + 0.5f) / h);
+
             foreach (int i in blob)
             {
                 roundKeys[i] = fakeKey;
                 roundColors[i] = fakeColor;
             }
+            fakeBlob.AddRange(blob);
             return;
         }
         Debug.LogError("Não consegui criar o país falso. Confira o mapa de IDs.");
     }
 
-    // Escolhe um ponto de fronteira e "desenha" uma mancha irregular em volta dele.
-    // Devolve false se a mancha ficou ruim (pequena demais, engoliu um país, etc.).
+    // Sorteia um modo (ilha ou país entre outros países), um ponto e um formato
+    // alongado e irregular. Devolve false se o resultado ficou ruim.
     bool BuildBlob(List<int> blob)
     {
-        int seed = borderSeeds[Random.Range(0, borderSeeds.Count)];
+        bool island = oceanSeeds.Count > 0 && (borderSeeds.Count == 0 || Random.value < islandChance);
+        int seed = island ? oceanSeeds[Random.Range(0, oceanSeeds.Count)]
+                          : borderSeeds[Random.Range(0, borderSeeds.Count)];
         pendingSeed = seed;
         int sx = seed % w, sy = seed / w;
 
-        float lat0 = (sy + 0.5f) / h * 180f - 90f;     // latitude do centro (graus)
-        float baseR = Random.Range(minRadius, maxRadius);   // raio base = TAMANHO aleatório
+        float lat0 = (sy + 0.5f) / h * 180f - 90f;
+        float cos0 = Mathf.Max(0.25f, Mathf.Cos(lat0 * Mathf.Deg2Rad));
 
-        // parâmetros aleatórios que deixam a borda irregular = FORMATO aleatório
-        float p1 = Random.value * 6.2832f, p2 = Random.value * 6.2832f;
-        int k1 = Random.Range(2, 4), k2 = Random.Range(4, 7);
-        float a1 = Random.Range(0.15f, 0.35f), a2 = Random.Range(0.08f, 0.20f);
+        // elipse comprida (a = eixo maior, b = menor) com área sorteada, girada e levemente curvada
+        float pxDeg = 180f / h;
+        float area = Random.Range(minArea, maxArea) * pxDeg * pxDeg;
+        float asp = Random.Range(minElongation, maxElongation);
+        float b = Mathf.Sqrt(area / (Mathf.PI * asp)), a = b * asp;
+        float rot = Random.value * Mathf.PI;
+        float cr = Mathf.Cos(rot), sr = Mathf.Sin(rot);
+        float bend = Random.Range(-0.5f, 0.5f) / a;
 
-        // em graus de longitude, 1 grau "anda menos" perto dos polos
-        float cos0 = Mathf.Max(0.2f, Mathf.Cos(lat0 * Mathf.Deg2Rad));
-        float reach = baseR * 1.6f;
+        // bordas "quebradas": muitas ondulações de tamanhos diferentes (deixa o contorno com cara de país)
+        const int Harm = 11;
+        float[] hk = new float[Harm], ha = new float[Harm], hp = new float[Harm];
+        for (int j = 0; j < Harm; j++)
+        {
+            hk[j] = j + 2;
+            ha[j] = Random.Range(0.04f, 0.30f) / Mathf.Pow(hk[j], 0.6f);
+            hp[j] = Random.value * 6.2832f;
+        }
+
+        float reach = a * 1.8f;
         int dyPx = Mathf.CeilToInt(reach / 180f * h);
         int dxPx = Mathf.CeilToInt(reach / cos0 / 360f * w);
 
-        var removed = new Dictionary<int, int>();       // quantos pixels tirei de cada país
+        var removed = new Dictionary<int, int>();   // quantos pixels tirei de cada país
+        int landPx = 0;
+        // para medir o formato (aspecto): somas dos momentos
+        double sumX = 0, sumY = 0, sumXX = 0, sumYY = 0, sumXY = 0;
 
         for (int y = Mathf.Max(0, sy - dyPx); y <= Mathf.Min(h - 1, sy + dyPx); y++)
         {
             for (int dx = -dxPx; dx <= dxPx; dx++)
             {
-                int x = ((sx + dx) % w + w) % w;        // dá a volta no globo (±180°)
-                int i = y * w + x;
-                int key = baseKeys[i];
-                if (key == oceanKey) continue;          // não pinta o mar
-
                 float dLat = (y - sy) * 180f / h;
                 float dLon = dx * 360f / w * cos0;
-                float dist = Mathf.Sqrt(dLat * dLat + dLon * dLon);
-                float ang = Mathf.Atan2(dLat, dLon);
-                float r = baseR * (1f + a1 * Mathf.Sin(k1 * ang + p1) + a2 * Mathf.Sin(k2 * ang + p2));
-                if (dist > r) continue;                 // fora da mancha
+                float u = dLon * cr + dLat * sr;
+                float v = -dLon * sr + dLat * cr;
+                v -= bend * u * u;                              // curva (formato de banana)
+                float th = Mathf.Atan2(v, u);
+                float ct = Mathf.Cos(th), st = Mathf.Sin(th);
+                float r = a * b / Mathf.Sqrt(b * b * ct * ct + a * a * st * st);
+                float f = 1f;
+                for (int j = 0; j < Harm; j++) f += ha[j] * Mathf.Sin(hk[j] * th + hp[j]);
+                if (Mathf.Sqrt(u * u + v * v) > r * f) continue;   // fora do formato
 
+                int x = ((sx + dx) % w + w) % w;                // dá a volta no globo
+                int i = y * w + x;
+                int key = baseKeys[i];
+
+                if (island)
+                {
+                    if (landDist[i] < 9) return false;          // ilha não pode encostar em terra (3 px)
+                }
+                else if (key != oceanKey)
+                {
+                    landPx++;
+                    removed.TryGetValue(key, out int cnt);
+                    removed[key] = cnt + 1;
+                }
                 blob.Add(i);
-                removed.TryGetValue(key, out int cnt);
-                removed[key] = cnt + 1;
+                sumX += dx * cos0; sumY += y; sumXX += (double)dx * cos0 * dx * cos0; sumYY += (double)y * y; sumXY += dx * cos0 * y;
             }
         }
 
-        if (blob.Count < 150) return false;             // pequeno demais para clicar
+        int n = blob.Count;
+        if (n < 200) return false;                              // pequeno demais para clicar
 
-        int significant = 0;
-        foreach (var kv in removed)
+        if (!island)
         {
-            // não pode engolir quase um país inteiro
-            if (kv.Value > totalPx[kv.Key] * 0.4f) return false;
-            // conta países que contribuíram com pelo menos 15% da mancha
-            if (kv.Value >= blob.Count * 0.15f) significant++;
+            if (landPx < n * 0.85f) return false;               // no mar demais: fica ilha, não "entre países"
+            int significant = 0;
+            foreach (var kv in removed)
+            {
+                if (kv.Value > totalPx[kv.Key] * 0.25f) return false;   // não engole um pedaço grande de um país
+                if (kv.Value >= landPx * 0.2f) significant++;
+            }
+            if (significant < 2) return false;                  // tem que cortar a fronteira de pelo menos 2 países
         }
-        return significant >= 2;                        // tem que ficar "entre" pelo menos 2 países
+
+        // formato: não pode ser redondo (razão entre os eixos principais >= 1,5)
+        double mx = sumX / n, my = sumY / n;
+        double cxx = sumXX / n - mx * mx, cyy = sumYY / n - my * my, cxy = sumXY / n - mx * my;
+        double tr = cxx + cyy, det = cxx * cyy - cxy * cxy;
+        double disc = System.Math.Sqrt(System.Math.Max(0, tr * tr / 4 - det));
+        double e1 = tr / 2 + disc, e2 = System.Math.Max(1e-9, tr / 2 - disc);
+        return System.Math.Sqrt(e1 / e2) >= 1.5;
     }
 
     static readonly string[] Syllables =
@@ -260,6 +626,219 @@ public class GlobeGame : MonoBehaviour
     {
         if (key == fakeKey) return fakeName;
         return nameByKey.TryGetValue(key, out string n) ? n : "esse país";
+    }
+
+    // ============================================================
+    //  NOMES NO GLOBO
+    // ============================================================
+    // Descobre o "meio" de cada país (o ponto mais longe de qualquer fronteira),
+    // coloca o nome ali e calcula quanto espaço o nome tem.
+    void BuildLabels(bool forFlags)
+    {
+        int n = w * h;
+
+        // índice do país de cada pixel nesta rodada (o falso ganha o índice countryCount)
+        System.Array.Copy(baseIdx, roundIdx, n);
+        foreach (int i in fakeBlob) roundIdx[i] = countryCount;
+
+        // 1) distância de cada pixel até a fronteira mais próxima (duas varreduras: ida e volta)
+        const int Far = 1000000;
+        for (int i = 0; i < n; i++)
+            dist[i] = (edge[i] || roundIdx[i] < 0) ? 0 : Far;       // fronteira e oceano = distância 0
+
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x;
+                int d = dist[i];
+                if (d == 0) continue;
+                if (x > 0) d = Mathf.Min(d, dist[i - 1] + 3);
+                if (y > 0)
+                {
+                    d = Mathf.Min(d, dist[i - w] + 3);
+                    if (x > 0) d = Mathf.Min(d, dist[i - w - 1] + 4);
+                    if (x < w - 1) d = Mathf.Min(d, dist[i - w + 1] + 4);
+                }
+                dist[i] = d;
+            }
+        }
+        for (int y = h - 1; y >= 0; y--)
+        {
+            for (int x = w - 1; x >= 0; x--)
+            {
+                int i = y * w + x;
+                int d = dist[i];
+                if (d == 0) continue;
+                if (x < w - 1) d = Mathf.Min(d, dist[i + 1] + 3);
+                if (y < h - 1)
+                {
+                    d = Mathf.Min(d, dist[i + w] + 3);
+                    if (x < w - 1) d = Mathf.Min(d, dist[i + w + 1] + 4);
+                    if (x > 0) d = Mathf.Min(d, dist[i + w - 1] + 4);
+                }
+                dist[i] = d;
+            }
+        }
+
+        // 2) para cada país, o pixel mais distante da fronteira = o "meio" dele
+        for (int k = 0; k <= countryCount; k++) bestDist[k] = -1;
+        for (int i = 0; i < n; i++)
+        {
+            int k = roundIdx[i];
+            if (k >= 0 && dist[i] > bestDist[k])
+            {
+                bestDist[k] = dist[i];
+                bestPix[k] = i;
+            }
+        }
+
+        // 3) posiciona um texto em cada país
+        float worldRadius = globeCollider.bounds.extents.x;     // raio do globo no mundo 3D
+        float radPerPx = 2f * Mathf.PI / w;                     // quantos radianos vale 1 pixel do mapa
+
+        for (int k = 0; k <= countryCount; k++)
+        {
+            labelOn[k] = false;
+            labels[k].gameObject.SetActive(false);
+            if (bestDist[k] < 3) continue;                      // país minúsculo (raio < 1 px): sem nome
+
+            string text = null;
+            if (forFlags)
+            {
+                if (k == countryCount || flagImgs[k] == null) continue;    // modo bandeira: só países reais com bandeira
+                text = "";
+            }
+            else if (k == countryCount) text = fakeName;
+            else nameByKey.TryGetValue(keyByIdx[k], out text);
+            if (!forFlags && string.IsNullOrEmpty(text)) continue;
+
+            int px = bestPix[k] % w, py = bestPix[k] / w;
+            Vector2 uv = new Vector2((px + 0.5f) / w, (py + 0.5f) / h);
+            if (!TryUvToLocal(uv, out Vector3 local)) continue;
+
+            float rPx = bestDist[k] / 3f;                       // raio do maior círculo que cabe no país (pixels)
+            float lat = ((py + 0.5f) / h - 0.5f) * Mathf.PI;
+
+            // largura real do país na linha do nome (anda para os lados enquanto ainda é o mesmo país)
+            int left = px, rightEdge = px;
+            while (left > 0 && roundIdx[py * w + left - 1] == k) left--;
+            while (rightEdge < w - 1 && roundIdx[py * w + rightEdge + 1] == k) rightEdge++;
+            float runPx = rightEdge - left + 1;
+
+            float widthRad = runPx * radPerPx * Mathf.Cos(lat);     // largura leste-oeste disponível
+            float heightRad = 2f * rPx * radPerPx;                  // altura norte-sul disponível
+
+            labelWidthWorld[k] = widthRad * worldRadius * 0.9f;
+            labelHeightWorld[k] = heightRad * worldRadius * 0.7f;
+            labelDiameterWorld[k] = heightRad * worldRadius;        // "tamanho" do país no globo
+            labelLocalPos[k] = local;
+            labelChars[k] = text.Length;
+            if (!forFlags) labels[k].text = text;
+            labelOn[k] = true;
+        }
+    }
+
+    // Todo frame: acompanha o giro e o zoom do globo
+    void LateUpdate()
+    {
+        if (flagRound) { UpdateFlags(); return; }
+        if (!showNames || labels == null) return;
+
+        Transform globe = globeCollider.transform;
+        Vector3 camPos = cam.transform.position;
+        float distToGlobe = Vector3.Distance(camPos, globe.position);
+        // quantos pixels da tela vale 1 unidade do mundo 3D (perto do globo)
+        float pxPerUnit = Screen.height / (2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * distToGlobe);
+        float canvasScale = canvas.scaleFactor;
+
+        for (int k = 0; k <= countryCount; k++)
+        {
+            if (!labelOn[k]) continue;
+
+            Vector3 world = globe.TransformPoint(labelLocalPos[k]);
+            Vector3 normal = globe.TransformDirection(labelLocalPos[k]).normalized;
+            bool facing = Vector3.Dot(normal, (camPos - world).normalized) > 0.2f;   // está do lado visível?
+
+            // tamanho da letra (em pixels) que cabe dentro do país
+            float fontPx = Mathf.Min(labelWidthWorld[k] * pxPerUnit / (labelChars[k] * 0.55f),
+                                     labelHeightWorld[k] * pxPerUnit);
+            fontPx = Mathf.Min(fontPx, 40f);
+            // país pequeno: a letra não cabe dentro dele, mas ele já está grande o bastante na tela,
+            // então mostramos o nome com a letra mínima (pode passar um pouco da borda)
+            if (fontPx < minLabelFont && labelDiameterWorld[k] * pxPerUnit >= tinyCountryPx)
+                fontPx = minLabelFont;
+            bool show = facing && fontPx >= minLabelFont;
+
+            GameObject go = labels[k].gameObject;
+            if (go.activeSelf != show) go.SetActive(show);
+            if (!show) continue;
+
+            labels[k].rectTransform.position = cam.WorldToScreenPoint(world);
+            float size = Mathf.Round(fontPx / canvasScale);
+            if (!Mathf.Approximately(labels[k].fontSize, size)) labels[k].fontSize = size;
+        }
+    }
+
+    // Modo bandeira: acompanha o giro e o zoom do globo (igual aos nomes, mas com imagens)
+    void UpdateFlags()
+    {
+        if (flagImgs == null) return;
+        Transform globe = globeCollider.transform;
+        Vector3 camPos = cam.transform.position;
+        float distToGlobe = Vector3.Distance(camPos, globe.position);
+        float pxPerUnit = Screen.height / (2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * distToGlobe);
+        float canvasScale = canvas.scaleFactor;
+
+        for (int k = 0; k < countryCount; k++)
+        {
+            if (flagImgs[k] == null || !labelOn[k]) continue;
+
+            Vector3 world = globe.TransformPoint(labelLocalPos[k]);
+            Vector3 normal = globe.TransformDirection(labelLocalPos[k]).normalized;
+            bool facing = Vector3.Dot(normal, (camPos - world).normalized) > 0.2f;
+
+            // altura (pixels) da bandeira que cabe no país (a bandeira é 4:3)
+            float hPx = Mathf.Min(labelWidthWorld[k] * pxPerUnit / 1.33f, labelHeightWorld[k] * pxPerUnit);
+            hPx = Mathf.Min(hPx, 48f);
+            if (hPx < minFlagPx && labelDiameterWorld[k] * pxPerUnit >= tinyCountryPx) hPx = minFlagPx;
+            bool show = facing && hPx >= minFlagPx;
+
+            GameObject go = flagImgs[k].gameObject;
+            if (go.activeSelf != show) go.SetActive(show);
+            if (!show) continue;
+
+            RectTransform rt = flagImgs[k].rectTransform;
+            rt.position = cam.WorldToScreenPoint(world);
+            rt.sizeDelta = new Vector2(hPx * 1.333f, hPx) / canvasScale;
+        }
+    }
+
+    // Converte um ponto do mapa (UV, de 0 a 1) em um ponto da esfera (coordenadas locais).
+    // Procura, na malha da esfera, o triângulo que contém esse ponto.
+    bool TryUvToLocal(Vector2 p, out Vector3 local)
+    {
+        local = Vector3.zero;
+        if (meshTris == null) return false;
+
+        for (int t = 0; t < meshTris.Length; t += 3)
+        {
+            int a = meshTris[t], b = meshTris[t + 1], c = meshTris[t + 2];
+            Vector2 ua = meshUvs[a];
+            Vector2 e1 = meshUvs[b] - ua, e2 = meshUvs[c] - ua, ep = p - ua;
+            float den = e1.x * e2.y - e2.x * e1.y;
+            if (Mathf.Abs(den) < 1e-9f) continue;
+
+            // coordenadas baricêntricas: "quanto" p pesa em cada canto do triângulo
+            float wb = (ep.x * e2.y - e2.x * ep.y) / den;
+            float wc = (e1.x * ep.y - ep.x * e1.y) / den;
+            float wa = 1f - wb - wc;
+            if (wa < -1e-4f || wb < -1e-4f || wc < -1e-4f) continue;   // p não está neste triângulo
+
+            local = wa * meshVerts[a] + wb * meshVerts[b] + wc * meshVerts[c];
+            return true;
+        }
+        return false;
     }
 
     // ============================================================
@@ -309,14 +888,20 @@ public class GlobeGame : MonoBehaviour
     // Mostra a resposta passo a passo (uma "coroutine" pode esperar entre os passos)
     IEnumerator AnswerSequence(bool right)
     {
-        resultText.text = right
-            ? $"Correto! {fakeName} não existe."
-            : $"Errado! Você clicou em {NameOf(selectedKey)}. O país que não existe era {fakeName}: veja ele piscando em branco.";
+        if (flagRound)
+            resultText.text = right
+                ? $"Correto! {fakeName} estava com a bandeira de {flagOwnerName}."
+                : $"Errado! Você clicou em {NameOf(selectedKey)}. A bandeira errada estava em {fakeName} (era a bandeira de {flagOwnerName}): veja ele piscando em branco.";
+        else
+            resultText.text = right
+                ? $"Correto! {fakeName} não existe."
+                : $"Errado! Você clicou em {NameOf(selectedKey)}. O país que não existe era {fakeName}: veja ele piscando em branco.";
 
         // 1) se errou, gira o globo até o país falso ficar de frente para a câmera
-        if (!right && TryGetFakeDirection(out Vector3 worldDir))
+        if (!right && TryUvToLocal(fakeUV, out Vector3 localDir))
         {
             Transform globe = globeCollider.transform;
+            Vector3 worldDir = globe.TransformDirection(localDir).normalized;
             Vector3 toCam = (cam.transform.position - globe.position).normalized;
             Quaternion startRot = globe.rotation;
             Quaternion endRot = Quaternion.FromToRotation(worldDir, toCam) * startRot;
@@ -347,40 +932,6 @@ public class GlobeGame : MonoBehaviour
 
         yield return new WaitForSeconds(3f);
         StartRound();                                                   // próxima rodada
-    }
-
-    // Descobre em que direção (no mundo 3D) está o país falso.
-    // Procura, na malha da esfera, o triângulo que contém o ponto do mapa (UV) do falso.
-    bool TryGetFakeDirection(out Vector3 worldDir)
-    {
-        worldDir = Vector3.forward;
-        Mesh m = globeCollider.sharedMesh;
-        if (m == null || !m.isReadable) return false;   // precisa de Read/Write ligado na malha
-
-        Vector3[] verts = m.vertices;
-        Vector2[] uvs = m.uv;
-        int[] tris = m.triangles;
-        Vector2 p = fakeUV;
-
-        for (int t = 0; t < tris.Length; t += 3)
-        {
-            int a = tris[t], b = tris[t + 1], c = tris[t + 2];
-            Vector2 ua = uvs[a];
-            Vector2 e1 = uvs[b] - ua, e2 = uvs[c] - ua, ep = p - ua;
-            float den = e1.x * e2.y - e2.x * e1.y;
-            if (Mathf.Abs(den) < 1e-9f) continue;
-
-            // coordenadas baricêntricas: "quanto" p pesa em cada canto do triângulo
-            float wb = (ep.x * e2.y - e2.x * ep.y) / den;
-            float wc = (e1.x * ep.y - ep.x * e1.y) / den;
-            float wa = 1f - wb - wc;
-            if (wa < -1e-4f || wb < -1e-4f || wc < -1e-4f) continue;   // p não está neste triângulo
-
-            Vector3 local = wa * verts[a] + wb * verts[b] + wc * verts[c];
-            worldDir = globeCollider.transform.TransformDirection(local).normalized;
-            return true;
-        }
-        return false;
     }
 
     // ============================================================

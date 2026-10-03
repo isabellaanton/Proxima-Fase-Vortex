@@ -8,62 +8,57 @@
 202,66,142,Armênia
 128,66,202,Arábia Saudita
 178,85,116,Austrália
-90,217,226,Azerbaidjão
+90,217,226,Azerbaijão
 152,57,226,Bahamas
 107,178,226,Bangladesh
+198,226,107,Belarus
 107,120,226,Belize
 136,178,45,Benin
-198,226,107,Bielo-Rússia
-202,150,66,Bolívia  Estado Plurinacional da
-225,250,119,Bosnia and Herz.
+202,150,66,Bolívia
 58,139,178,Botsuana
 124,90,226,Brasil
 176,85,178,Brunei
 81,128,202,Bulgária
-69,57,226,Burquina
+69,57,226,Burkina Faso
 178,45,92,Burundi
 202,51,186,Butão
 250,228,100,Bélgica
+225,250,119,Bósnia
 246,250,137,Camarões
 250,137,209,Camboja
 202,96,189,Canadá
 226,165,124,Catar
 250,146,119,Cazaquistão
-202,111,116,Central African Rep.
 125,178,71,Chade
 98,178,111,Chile
 250,198,137,China
 70,178,45,Chipre
-89,250,62,Chéquia
+93,81,202,Chipre do Norte
 124,201,226,Colômbia
 250,210,119,Congo
-250,86,81,Coreia  República Popular Democrática da
-202,108,96,Coreia  República da
+250,86,81,Coreia do Norte
+202,108,96,Coreia do Sul
 202,81,108,Costa Rica
 137,228,250,Costa do Marfim
 96,102,202,Croácia
 144,51,202,Cuba
-62,243,250,Dem. Rep. Congo
 51,202,193,Dinamarca
 250,98,62,Djibuti
-67,62,250,Dominican Rep.
 73,226,111,Egito
 71,178,123,El Salvador
-202,152,111,Emirados Árabes Unidos
-100,247,250,Eq. Guinea
+202,152,111,Emirados Árabes
 226,213,90,Equador
-178,58,120,Eritréia
+178,58,120,Eritreia
 178,146,85,Eslováquia
 88,202,81,Eslovênia
 202,96,137,Espanha
+250,137,154,Essuatíni
 155,226,57,Estados Unidos
 142,81,250,Estônia
 226,86,73,Etiópia
-148,124,226,Falkland Is.
 81,187,250,Fiji
 131,250,81,Filipinas
 226,107,217,Finlândia
-161,202,51,Fr. S. Antarctic Lands
 58,178,158,França
 85,178,115,Gabão
 250,62,119,Gana
@@ -73,15 +68,18 @@
 178,177,98,Guatemala
 124,151,226,Guiana
 119,202,96,Guiné
+100,247,250,Guiné Equatorial
 85,178,161,Guiné-Bissau
 90,150,226,Gâmbia
 137,172,250,Haiti
 81,250,114,Honduras
 226,124,134,Hungria
+148,124,226,Ilhas Malvinas
+100,250,179,Ilhas Salomão
 177,81,202,Indonésia
 51,202,119,Iraque
 191,250,137,Irlanda
-250,100,119,Irã  República Islâmica do
+250,100,119,Irã
 119,250,232,Islândia
 178,58,60,Israel
 202,94,51,Itália
@@ -91,6 +89,7 @@
 250,119,246,Jordânia
 226,180,57,Kosovo
 120,202,66,Kuwait
+136,73,226,Laos
 250,169,81,Lesoto
 226,107,159,Letônia
 57,226,125,Libéria
@@ -105,13 +104,12 @@
 189,119,250,Malásia
 226,147,90,Marrocos
 125,98,178,Mauritânia
-45,114,178,Moldávia  República da
+250,62,212,Mianmar
+45,114,178,Moldávia
 226,196,107,Mongólia
 182,111,202,Montenegro
 119,250,167,Moçambique
-250,62,212,Myanmar
 146,202,111,México
-93,81,202,N. Cyprus
 107,226,216,Namíbia
 178,45,158,Nepal
 130,85,178,Nicarágua
@@ -121,7 +119,7 @@
 226,57,100,Nova Zelândia
 202,197,81,Níger
 81,104,250,Omã
-202,196,111,Palestine
+202,196,111,Palestina
 58,80,178,Panamá
 85,85,178,Papua-Nova Guiné
 137,250,217,Paquistão
@@ -133,43 +131,45 @@
 88,71,178,Portugal
 98,178,151,Quirguistão
 191,90,226,Quênia
+62,243,250,RD Congo
 178,100,85,Reino Unido
-136,73,226,República Popular Democrática do Laos
-148,202,81,República Árabe da Síria
+202,111,116,Rep. Centro-Africana
+67,62,250,Rep. Dominicana
 250,155,100,Romênia
 216,226,73,Ruanda
-178,98,98,Russia
-130,100,250,S. Sudan
+178,98,98,Rússia
+178,71,90,Saara Ocidental
 187,202,66,Senegal
 211,73,226,Serra Leoa
-100,250,179,Solomon Is.
-100,178,58,Somaliland
+100,178,58,Somalilândia
 235,137,250,Somália
 139,226,107,Sri Lanka
-250,137,154,Suazilândia
 69,51,202,Sudão
+130,100,250,Sudão do Sul
 73,226,186,Suriname
 133,45,178,Suécia
 178,105,71,Suíça
 204,100,250,Sérvia
-226,161,73,Tadjiquistão
+148,202,81,Síria
 226,124,184,Tailândia
-96,202,125,Taiwan  Província da China
-178,155,45,Tanzânia  República Unida da
-178,98,153,Timor Leste
+96,202,125,Taiwan
+226,161,73,Tajiquistão
+178,155,45,Tanzânia
+89,250,62,Tchéquia
+161,202,51,Terras Austrais
+178,98,153,Timor-Leste
 111,202,167,Togo
-73,191,226,Trinidade e Tobago
+73,191,226,Trinidad e Tobago
 73,178,71,Tunísia
 178,138,98,Turcomenistão
-81,188,202,Turkey
+81,188,202,Turquia
 159,178,58,Ucrânia
 137,111,202,Uganda
 164,98,178,Uruguai
 96,154,202,Uzbequistão
 143,96,202,Vanuatu
-100,250,105,Venezuela  República Bolivariana da
+100,250,105,Venezuela
 66,202,173,Vietnã
-178,71,90,W. Sahara
 62,150,250,Zimbábue
 181,250,62,Zâmbia
 250,81,159,África do Sul
