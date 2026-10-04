@@ -122,6 +122,8 @@ public class GlobeGame : MonoBehaviour
     // ============================================================
     void Start()
     {
+        ConfigureConfirmButton();
+        ConfigureResultText();
         w = idMap.width;
         h = idMap.height;
         baseColors = idMap.GetPixels32();
@@ -242,6 +244,33 @@ public class GlobeGame : MonoBehaviour
 
         confirmButton.onClick.AddListener(Confirm);
         StartRound();
+    }
+
+    // Mantém o botão de confirmação visível em qualquer proporção da janela Game.
+    void ConfigureConfirmButton()
+    {
+        RectTransform rect = confirmButton.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(1f, 0f);
+        rect.anchoredPosition = new Vector2(-32f, 32f);
+        rect.sizeDelta = new Vector2(300f, 96f);
+
+        TMP_Text label = confirmButton.GetComponentInChildren<TMP_Text>();
+        if (label != null) label.fontSize = 36f;
+    }
+
+    // Centraliza o retorno da rodada e reserva uma área larga para mensagens longas.
+    void ConfigureResultText()
+    {
+        RectTransform rect = resultText.rectTransform;
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(0f, -150f);
+        rect.sizeDelta = new Vector2(900f, 220f);
+        resultText.alignment = TextAlignmentOptions.Center;
+        resultText.raycastTarget = false;
     }
 
     bool IsBigLand(int key) =>
